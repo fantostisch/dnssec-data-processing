@@ -1,6 +1,7 @@
 import java.io.File
 import kotlin.system.exitProcess
 import kotlinx.coroutines.*
+import java.lang.Exception
 
 fun verificationSucceeded(byte: Byte): Boolean {
     return byte == 1.toByte()
@@ -57,6 +58,7 @@ suspend fun main(args: Array<String>) {
     var index = 0
     var validationSuccess = 0
     var readBytes = 0
+    var errors = 0
     coroutineScope {
         val progressJob = launch {
             while (true) {
@@ -78,33 +80,41 @@ suspend fun main(args: Array<String>) {
                 val domainNameDNS = inputStream.readNBytes(length.toInt())
                 assert(inputStream.read() == '\n'.code)
 
-                val domainName = domainNameToString(domainNameDNS)
-                val domainNameString = domainName.dropLast(1).joinToString(".")
+                val domainName = try {
+                    domainNameToString(domainNameDNS)
+                } catch (ex: Exception) {
+                    null
+                }
+                if (domainName == null) {
+                    errors++
+                } else {
+                    val domainNameString = domainName.dropLast(1).joinToString(".")
 
-                if (domainName.size <= 2 || suffixes.contains(domainNameString)) {
-                    val stat = stats.get(domainNameString)
-                    if (stat != null) {
-                        stat.validations++
-                        if (validated) {
-                            stat.successfullValidations++
-                        }
-                    } else {
-                        val validatedAmount = if (validated) {
-                            1
+                    if (domainName.size <= 2 || suffixes.contains(domainNameString)) {
+                        val stat = stats.get(domainNameString)
+                        if (stat != null) {
+                            stat.validations++
+                            if (validated) {
+                                stat.successfullValidations++
+                            }
                         } else {
-                            0
+                            val validatedAmount = if (validated) {
+                                1
+                            } else {
+                                0
+                            }
+                            stats.put(domainNameString, Stats(1, validatedAmount))
                         }
-                        stats.put(domainNameString, Stats(1, validatedAmount))
                     }
-                }
 
-                if (index == 0) {
-                    firstTimeStamp = unixTimeStamp
-                }
-                lastTimestamp = unixTimeStamp
+                    if (index == 0) {
+                        firstTimeStamp = unixTimeStamp
+                    }
+                    lastTimestamp = unixTimeStamp
 
-                if (validated) {
-                    validationSuccess++
+                    if (validated) {
+                        validationSuccess++
+                    }
                 }
                 index++
                 readBytes += dataLength + length.toInt() + 1
@@ -115,6 +125,7 @@ suspend fun main(args: Array<String>) {
     }
     val out = File("out.csv")
     out.writeText("")
+    out.appendText("Failed: $errors\n")
     out.appendText("Total amount of verifications: $index\n")
     out.appendText("Successfully validated: $validationSuccess\n")
     out.appendText("First validation: $firstTimeStamp\n")
