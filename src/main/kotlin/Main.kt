@@ -179,7 +179,7 @@ suspend fun main(args: Array<String>) {
     val averagePS = index.toDouble() / time.toDouble()
     out.appendText("Average validations per second: $averagePS\n")
     stats.toList().sortedBy { (domain, _) -> domain }.forEach { (domain, stat) ->
-        out.appendText("$domain, ${stat.validations}, ${stat.successfullValidations},${stat.peak}\n")
+        out.appendText("$domain,${stat.validations},${stat.successfullValidations},${stat.peak}\n")
     }
     println("Done")
 }
