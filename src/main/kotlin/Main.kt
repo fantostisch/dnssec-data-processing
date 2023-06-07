@@ -72,6 +72,8 @@ suspend fun main(args: Array<String>) {
     var errors = 0
     var allTimes = listOf<UInt>()
     var allPeak = 0.toDouble()
+    var previousTime = 0u
+    var notInOrder = 0
     coroutineScope {
         val progressJob = launch {
             while (true) {
@@ -150,6 +152,11 @@ suspend fun main(args: Array<String>) {
                     }
 
                 }
+                if (unixTimeStamp < previousTime) {
+                    notInOrder++
+                } else {
+                    previousTime = unixTimeStamp
+                }
                 index++
                 readBytes += dataLength + length.toInt() + 1
             }
@@ -160,6 +167,7 @@ suspend fun main(args: Array<String>) {
     val out = File("out.csv")
     out.writeText("")
     out.appendText("Failed: $errors\n")
+    out.appendText("Not in order: $notInOrder\n")
     out.appendText("Total amount of verifications: $index\n")
     out.appendText("Successfully validated: $validationSuccess\n")
     out.appendText("First validation: $firstTimeStamp\n")
