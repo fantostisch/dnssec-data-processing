@@ -3,7 +3,7 @@ import kotlin.system.exitProcess
 import kotlinx.coroutines.*
 
 fun verificationSucceeded(byte: Byte): Boolean {
-    return byte == 5.toByte()
+    return byte == 1.toByte()
 }
 
 fun exit(message: String) {
