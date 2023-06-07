@@ -38,8 +38,19 @@ fun getPublicSuffixes(): List<String> {
     return suffixFile.readLines().filter { l -> !l.startsWith("//") && l.isNotEmpty() }
 }
 
-data class Stats(var validations: Int, var successfullValidations: Int)
+data class Stats(
+    var validations: Int,
+    var successfullValidations: Int,
+    var times: List<UInt>,
+    var peak: Double
+)
 
+val windowSeconds = 30u
+
+fun updateTimes(times: List<UInt>, unixTimeStamp: UInt): List<UInt> {
+    val newTimes = times.dropWhile { time -> time < unixTimeStamp - windowSeconds }
+    return newTimes + unixTimeStamp
+}
 
 suspend fun main(args: Array<String>) {
     if (args.isEmpty()) {
@@ -59,6 +70,8 @@ suspend fun main(args: Array<String>) {
     var validationSuccess = 0
     var readBytes = 0
     var errors = 0
+    var allTimes = listOf<UInt>()
+    var allPeak = 0.toDouble()
     coroutineScope {
         val progressJob = launch {
             while (true) {
@@ -93,6 +106,12 @@ suspend fun main(args: Array<String>) {
                     if (domainName.size <= 2 || suffixes.contains(domainNameString)) {
                         val stat = stats.get(domainNameString)
                         if (stat != null) {
+                            stat.times = updateTimes(stat.times, unixTimeStamp)
+                            val currentPeak =
+                                stat.times.size.toDouble() / windowSeconds.toDouble()
+                            if (currentPeak > stat.peak) {
+                                stat.peak = currentPeak
+                            }
                             stat.validations++
                             if (validated) {
                                 stat.successfullValidations++
@@ -103,7 +122,15 @@ suspend fun main(args: Array<String>) {
                             } else {
                                 0
                             }
-                            stats.put(domainNameString, Stats(1, validatedAmount))
+                            stats.put(
+                                domainNameString,
+                                Stats(
+                                    1,
+                                    validatedAmount,
+                                    listOf(unixTimeStamp),
+                                    1.toDouble() / windowSeconds.toDouble()
+                                )
+                            )
                         }
                     }
 
@@ -115,6 +142,13 @@ suspend fun main(args: Array<String>) {
                     if (validated) {
                         validationSuccess++
                     }
+                    allTimes = updateTimes(allTimes, unixTimeStamp)
+                    val currentPeak =
+                        allTimes.size.toDouble() / windowSeconds.toDouble()
+                    if (currentPeak > allPeak) {
+                        allPeak = currentPeak
+                    }
+
                 }
                 index++
                 readBytes += dataLength + length.toInt() + 1
@@ -130,11 +164,12 @@ suspend fun main(args: Array<String>) {
     out.appendText("Successfully validated: $validationSuccess\n")
     out.appendText("First validation: $firstTimeStamp\n")
     out.appendText("Last validation: $lastTimestamp\n")
+    out.appendText("Validations per second in $windowSeconds seconds: $allPeak\n")
     val time = lastTimestamp - firstTimeStamp
     val averagePS = index.toDouble() / time.toDouble()
     out.appendText("Average validations per second: $averagePS\n")
     stats.toList().sortedBy { (domain, _) -> domain }.forEach { (domain, stat) ->
-        out.appendText("$domain, ${stat.validations}, ${stat.successfullValidations}\n")
+        out.appendText("$domain, ${stat.validations}, ${stat.successfullValidations},${stat.peak}\n")
     }
     println("Done")
 }
