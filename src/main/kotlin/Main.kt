@@ -139,7 +139,9 @@ suspend fun main(args: Array<String>) {
                     if (index == 0) {
                         firstTimeStamp = unixTimeStamp
                     }
-                    lastTimestamp = unixTimeStamp
+                    if (unixTimeStamp > lastTimestamp) {
+                        lastTimestamp = unixTimeStamp
+                    }
 
                     if (validated) {
                         validationSuccess++
