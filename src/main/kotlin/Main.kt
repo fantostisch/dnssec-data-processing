@@ -1,5 +1,6 @@
 import java.io.File
 import kotlin.system.exitProcess
+import kotlinx.coroutines.*
 
 fun verificationSucceeded(byte: Byte): Boolean {
     return byte == 5.toByte()
@@ -39,7 +40,7 @@ fun getPublicSuffixes(): List<String> {
 data class Stats(var validations: Int, var successfullValidations: Int)
 
 
-fun main(args: Array<String>) {
+suspend fun main(args: Array<String>) {
     if (args.isEmpty()) {
         exit("Please specify log file as argument.")
     }
@@ -49,58 +50,78 @@ fun main(args: Array<String>) {
     val stats = mutableMapOf<String, Stats>()
 
     val logFile = File(args[0])
+    val logFileSize = logFile.length()
     val inputStream = logFile.inputStream()
     var firstTimeStamp = 0u
     var lastTimestamp = 0u
     var index = 0
     var validationSuccess = 0
-    while (inputStream.available() > 0) {
-        val data = inputStream.readNBytes(8)
-        val unixTimeStamp = data.getUIntAt(0)
-        val algo = data.get(5).toUByte()
-        val validated = verificationSucceeded(data.get(6))
-        val length = data.get(7).toUByte()
-
-        val domainNameDNS = inputStream.readNBytes(length.toInt())
-        assert(inputStream.read() == '\n'.code)
-
-        val domainName = domainNameToString(domainNameDNS)
-        val domainNameString = domainName.dropLast(1).joinToString(".")
-
-        if (domainName.size <= 2 || suffixes.contains(domainNameString)) {
-            val stat = stats.get(domainNameString)
-            if (stat != null) {
-                stat.validations++
-                if (validated) {
-                    stat.successfullValidations++
-                }
-            } else {
-                val validatedAmount = if (validated) {
-                    1
-                } else {
-                    0
-                }
-                stats.put(domainNameString, Stats(1, validatedAmount))
+    var readBytes = 0
+    coroutineScope {
+        val progressJob = launch {
+            while (true) {
+                val progress = readBytes.toDouble() / logFileSize.toDouble() * 100
+                val progressString = "%.1f".format(progress)
+                println("$progressString%")
+                delay(1000)
             }
         }
+        launch {
+            while (inputStream.available() > 0) {
+                val dataLength = 8
+                val data = inputStream.readNBytes(dataLength)
+                val unixTimeStamp = data.getUIntAt(0)
+                val algo = data.get(5).toUByte()
+                val validated = verificationSucceeded(data.get(6))
+                val length = data.get(7).toUByte()
 
-        if (index == 0) {
-            firstTimeStamp = unixTimeStamp
-        }
-        lastTimestamp = unixTimeStamp
+                val domainNameDNS = inputStream.readNBytes(length.toInt())
+                assert(inputStream.read() == '\n'.code)
 
-        if (validated) {
-            validationSuccess++
+                val domainName = domainNameToString(domainNameDNS)
+                val domainNameString = domainName.dropLast(1).joinToString(".")
+
+                if (domainName.size <= 2 || suffixes.contains(domainNameString)) {
+                    val stat = stats.get(domainNameString)
+                    if (stat != null) {
+                        stat.validations++
+                        if (validated) {
+                            stat.successfullValidations++
+                        }
+                    } else {
+                        val validatedAmount = if (validated) {
+                            1
+                        } else {
+                            0
+                        }
+                        stats.put(domainNameString, Stats(1, validatedAmount))
+                    }
+                }
+
+                if (index == 0) {
+                    firstTimeStamp = unixTimeStamp
+                }
+                lastTimestamp = unixTimeStamp
+
+                if (validated) {
+                    validationSuccess++
+                }
+                index++
+                readBytes += dataLength + length.toInt() + 1
+            }
+            progressJob.cancel()
+            inputStream.close()
         }
-        index++
     }
-    inputStream.close()
     val out = File("out.csv")
     out.writeText("")
     out.appendText("Total amount of verifications: $index\n")
     out.appendText("Successfully validated: $validationSuccess\n")
     out.appendText("First validation: $firstTimeStamp\n")
     out.appendText("Last validation: $lastTimestamp\n")
+    val time = lastTimestamp - firstTimeStamp
+    val averagePS = index.toDouble() / time.toDouble()
+    out.appendText("Average validations per second: $averagePS\n")
     stats.toList().sortedBy { (domain, _) -> domain }.forEach { (domain, stat) ->
         out.appendText("$domain, ${stat.validations}, ${stat.successfullValidations}\n")
     }
