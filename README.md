@@ -3,5 +3,6 @@
 ## Running 
 
 ```bash
-./gradlew run --args="path to logfile"
+./gradlew run --args="anonymize /path/to/log"
+./gradlew run --args="analyze /path/to/log.anon"
 ```
