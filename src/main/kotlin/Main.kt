@@ -71,10 +71,41 @@ fun getPublicSuffixes(): List<String> {
         .map { s -> IDN.toASCII(s) }
 }
 
-fun getPublicSuffixBytes(): List<List<ByteArray>> {
-    return getPublicSuffixes()
+data class Suffix(
+    val suffix: List<ByteArray>,
+    val wildcard: Boolean,
+    val exceptions: List<List<ByteArray>>
+)
+
+fun getPublicSuffixBytes(): List<Suffix> {
+    val allSuffixes = getPublicSuffixes()
         .map { suffix -> suffix.split('.').map { s -> s.encodeToByteArray() } }
+    val normalSuffixes = mutableListOf<List<ByteArray>>()
+    val wildcardSuffixes = mutableListOf<List<ByteArray>>()
+    val exceptionSuffixes = mutableListOf<List<ByteArray>>()
+    allSuffixes.forEach { s ->
+        val wildcard = s.first().size == 1 && s.first()[0] == '*'.code.toByte()
+        val exception = s.first()[0] == '!'.code.toByte()
+        if (wildcard) {
+            wildcardSuffixes.add(s.drop(1))
+        } else if (exception) {
+            val first = s.first()
+            val noExclamationMark =
+                listOf(first.copyOfRange(1, first.size)) + s.subList(1, s.size)
+            exceptionSuffixes.add(noExclamationMark)
+        } else {
+            normalSuffixes.add(s)
+        }
+    }
+    val wildcards = wildcardSuffixes.map { w ->
+        val exceptions =
+            exceptionSuffixes.filter { ex -> byteArrayListEquals(w, ex.drop(1)) }
+        Suffix(w, true, exceptions)
+    }
+    val normal = normalSuffixes.map { s -> Suffix(s, false, listOf()) }
+    return normal + wildcards
 }
+
 
 data class Stats(
     var validations: Int,
@@ -161,7 +192,7 @@ fun byteArrayListEquals(a: List<ByteArray>, b: List<ByteArray>): Boolean {
 
 fun getSuffix(
     domain: List<ByteArray>,
-    suffixes: List<List<ByteArray>>
+    suffixes: List<Suffix>
 ): Pair<Boolean, List<ByteArray>>? {
     return getSuffixWithoutRoot(
         domain.dropLast(1),
@@ -169,25 +200,39 @@ fun getSuffix(
     )?.let { (sub, domain) -> Pair(sub, domain + ByteArray(0)) }
 }
 
+fun isPartOf(domain: List<ByteArray>, suffix: List<ByteArray>): Boolean {
+    val from = domain.size - suffix.size
+    return if (from < 0) {
+        false
+    } else {
+        byteArrayListEquals(domain.subList(from, domain.size), suffix)
+    }
+}
+
 fun getSuffixWithoutRoot(
     domain: List<ByteArray>,
-    suffixes: List<List<ByteArray>>
+    suffixes: List<Suffix>
 ): Pair<Boolean, List<ByteArray>>? {
     val suffix = suffixes.filter { s ->
-        val from = domain.size - s.size
-        if (from < 0) {
-            false
+        isPartOf(domain, s.suffix)
+    }.maxByOrNull { s -> s.suffix.size } ?: return null
+    val domainSuffix = if (!suffix.wildcard) {
+        suffix.suffix
+    } else {
+        val isException = suffix.exceptions.any { ex -> isPartOf(domain, ex) }
+        if (isException) {
+            suffix.suffix
         } else {
-            byteArrayListEquals(domain.subList(from, domain.size), s)
+            domain.takeLast(suffix.suffix.size + 1)
         }
-    }.maxByOrNull { s -> s.size } ?: return null
-    val sub = domain.size > suffix.size
-    return Pair(sub, suffix)
+    }
+    val sub = domain.size > domainSuffix.size
+    return Pair(sub, domainSuffix)
 }
 
 fun anonymizeDomain(
     domainNameDNS: ByteArray,
-    suffixes: List<List<ByteArray>>
+    suffixes: List<Suffix>
 ): Pair<Boolean, List<ByteArray>>? {
     val domainName = try {
         domainNameToList(domainNameDNS)

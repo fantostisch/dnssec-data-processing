@@ -16,7 +16,7 @@ class KeepSuffixTest {
         expected: List<ByteArray>,
         actual: List<ByteArray>
     ) {
-        assertEquals(readable(actual), readable(expected))
+        assertEquals(readable(expected), readable(actual))
         assertEquals(expected.size, actual.size)
         expected.zip(actual).forEach { (expectedB, actualB) ->
             assertContentEquals(expectedB, actualB)
@@ -69,48 +69,68 @@ class KeepSuffixTest {
         listOf(
             "dh.bytemark.co.uk",
             "co.uk",
-            "xn--wcvs22d.xn--j6w193g"
-        ).forEach { suffix ->
-            assert(
-                Pair(false, toDomain(suffix)),
-                anonymizeDomain(listToDomainName(toDomain(suffix)), suffixes)
-            )
-        }
-    }
-
-    @Test
-    fun subdomainOfValidSuffix() {
-        listOf(
-            "dh.bytemark.co.uk",
-            "co.uk",
             "xn--wcvs22d.xn--j6w193g",
-            "com"
-        ).forEach { suffix ->
-            assert(
-                Pair(true, toDomain(suffix)),
-                anonymizeDomain(listToDomainName(toDomain("abc.$suffix")), suffixes)
-            )
-        }
-    }
-
-    @Test
-    fun longerSubdomainOfValidSuffix() {
-        listOf(
+            "com",
             "s3.dualstack.ap-northeast-1.amazonaws.com",
             "xn--mgba3a4fra.ir",
             "xn--wcvs22d.xn--j6w193g",
             "xn--2scrj9c"
         ).forEach { suffix ->
             assert(
+                Pair(false, toDomain(suffix)),
+                anonymizeDomain(listToDomainName(toDomain(suffix)), suffixes)
+            )
+            assert(
+                Pair(true, toDomain(suffix)),
+                anonymizeDomain(listToDomainName(toDomain("abc.$suffix")), suffixes)
+            )
+            assert(
+                Pair(true, toDomain(suffix)),
+                anonymizeDomain(listToDomainName(toDomain("a.b.cd.$suffix")), suffixes)
+            )
+        }
+    }
+
+    @Test
+    fun wildcard() {
+        listOf(
+            "test.kawasaki.jp",
+            "test.kh",
+            "test.elb.amazonaws.com.cn",
+            "test.compute-1.amazonaws.com"
+        ).forEach { suffix ->
+            assert(
+                Pair(false, toDomain(suffix)),
+                anonymizeDomain(listToDomainName(toDomain(suffix)), suffixes)
+            )
+            assert(
+                Pair(true, toDomain(suffix)),
+                anonymizeDomain(listToDomainName(toDomain("abc.def.$suffix")), suffixes)
+            )
+            assert(
                 Pair(true, toDomain(suffix)),
                 anonymizeDomain(
-                    listToDomainName(toDomain("a.b.c.test.$suffix")),
+                    listToDomainName(toDomain("a.b.c.d.e.f.$suffix")),
                     suffixes
                 )
             )
         }
     }
 
+    @Test
+    fun excludeExceptions() {
+        listOf(
+            Pair("www.ck", "ck"),
+            Pair("test.www.ck", "ck"),
+            Pair("city.kawasaki.jp", "kawasaki.jp"),
+            Pair("test.city.kawasaki.jp", "kawasaki.jp"),
+        ).forEach { suffix ->
+            assert(
+                Pair(true, toDomain(suffix.second)),
+                anonymizeDomain(listToDomainName(toDomain(suffix.first)), suffixes)
+            )
+        }
+    }
 
     @Test
     fun noRoot() {
