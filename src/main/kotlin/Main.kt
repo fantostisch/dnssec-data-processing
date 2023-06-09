@@ -134,6 +134,8 @@ fun assertOrExit(check: Boolean, message: String) {
     }
 }
 
+val anonSuffix = "anon"
+
 suspend fun main(args: Array<String>) {
     if (args.size < 2) {
         printHelp()
@@ -142,6 +144,11 @@ suspend fun main(args: Array<String>) {
     when (args[0]) {
         "analyze" -> analyze(fileLocation)
         "anonymize" -> anonymize(fileLocation)
+        "aa" -> {
+            anonymize(fileLocation)
+            analyze("$fileLocation.$anonSuffix")
+        }
+
         else -> printHelp()
     }
     println("Done")
@@ -249,7 +256,7 @@ fun anonymizeDomain(
 suspend fun anonymize(fileLocation: String) {
     val suffixes = getPublicSuffixBytes()
 
-    val outFileSuccess = File("$fileLocation.anon")
+    val outFileSuccess = File("$fileLocation.$anonSuffix")
     outFileSuccess.writeText("")
     val outputStreamSuccess = outFileSuccess.outputStream()
 
