@@ -141,12 +141,13 @@ suspend fun main(args: Array<String>) {
         printHelp()
     }
     val fileLocation = args[1]
+    val includeSub = args.getOrNull(2) == "all"
     when (args[0]) {
-        "analyze" -> analyze(fileLocation)
+        "analyze" -> analyze(fileLocation, includeSub)
         "anonymize" -> anonymize(fileLocation)
         "aa" -> {
             anonymize(fileLocation)
-            analyze("$fileLocation.$anonSuffix")
+            analyze("$fileLocation.$anonSuffix", includeSub)
         }
 
         else -> printHelp()
@@ -304,7 +305,7 @@ suspend fun anonymize(fileLocation: String) {
     outputStreamFailed.close()
 }
 
-suspend fun analyze(fileLocation: String) {
+suspend fun analyze(fileLocation: String, includesub: Boolean) {
     val stats = mutableMapOf<String, Stats>()
 
     var firstTimeStamp = 0u
@@ -337,7 +338,7 @@ suspend fun analyze(fileLocation: String) {
         } else {
             val domainNameString = domainName.dropLast(1).joinToString(".")
 
-            if (sub == 0.toUByte()) {
+            if (includesub || sub == 0.toUByte()) {
                 val stat = stats.get(domainNameString)
                 if (stat != null) {
                     stat.times = updateTimes(stat.times, unixTimeStamp)
