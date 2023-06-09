@@ -124,7 +124,8 @@ fun updateTimes(times: List<UInt>, unixTimeStamp: UInt): List<UInt> {
 fun printHelp() {
     exit(
         "Usage: anonymize FILE_LOCATION\n" +
-                "or: analyze FILE_LOCATION (only works on anonymized files)"
+                "or: analyze FILE_LOCATION (only works on anonymized files)\n" +
+                "or: zone FOLDER_LOCATION [filter]\n"
     )
 }
 
@@ -142,6 +143,7 @@ suspend fun main(args: Array<String>) {
     }
     val fileLocation = args[1]
     val includeSub = args.getOrNull(2) == "all"
+    val filterDuplicateSignatures = args.getOrNull(2) == "filter"
     when (args[0]) {
         "analyze" -> analyze(fileLocation, includeSub)
         "anonymize" -> anonymize(fileLocation)
@@ -150,6 +152,7 @@ suspend fun main(args: Array<String>) {
             analyze("$fileLocation.$anonSuffix", includeSub)
         }
 
+        "zone" -> analyzeZoneFiles(fileLocation, filterDuplicateSignatures)
         else -> printHelp()
     }
     println("Done")
