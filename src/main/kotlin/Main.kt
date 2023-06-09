@@ -15,6 +15,9 @@ fun exit(message: String) {
 }
 
 fun domainNameToString(byteArray: ByteArray): List<String> {
+    if (byteArray.isEmpty()) {
+        throw IllegalArgumentException()
+    }
     if (byteArray.size == 1) {
         return listOf("")
     }
@@ -29,6 +32,9 @@ fun domainNameToString(byteArray: ByteArray): List<String> {
 }
 
 fun domainNameToList(byteArray: ByteArray): List<ByteArray> {
+    if (byteArray.isEmpty()) {
+        throw IllegalArgumentException()
+    }
     if (byteArray.size == 1) {
         return listOf(ByteArray(0))
     }
@@ -179,6 +185,22 @@ fun getSuffixWithoutRoot(
     return Pair(sub, suffix)
 }
 
+fun anonymizeDomain(
+    domainNameDNS: ByteArray,
+    suffixes: List<List<ByteArray>>
+): Pair<Boolean, List<ByteArray>>? {
+    val domainName = try {
+        domainNameToList(domainNameDNS)
+    } catch (ex: Exception) {
+        return null
+    }
+    return if (domainName.size == 1) {
+        Pair(false, domainName)
+    } else {
+        getSuffix(domainName, suffixes)
+    }
+}
+
 suspend fun anonymize(fileLocation: String) {
     val suffixes = getPublicSuffixBytes()
 
@@ -195,11 +217,6 @@ suspend fun anonymize(fileLocation: String) {
         val data = inputStream.readNBytes(dataLength)
         val length = data[7].toUByte()
         val domainNameDNS = inputStream.readNBytes(length.toInt())
-        val domainName = try {
-            domainNameToList(domainNameDNS)
-        } catch (ex: Exception) {
-            null
-        }
 
         fun writeFailed() {
             outputStreamFailed.write(data)
@@ -221,17 +238,11 @@ suspend fun anonymize(fileLocation: String) {
             outputStreamSuccess.write('\n'.code)
         }
 
-        if (domainName == null) {
+        val domainSuffix = anonymizeDomain(domainNameDNS, suffixes)
+        if (domainSuffix == null) {
             writeFailed()
-        } else if (domainName.size == 1) {
-            writeSuccess(false, domainName)
         } else {
-            val suffixResult = getSuffix(domainName, suffixes)
-            if (suffixResult == null) {
-                writeFailed()
-            } else {
-                writeSuccess(suffixResult.first, suffixResult.second)
-            }
+            writeSuccess(domainSuffix.first, domainSuffix.second)
         }
 
         assertOrExit(inputStream.read() == '\n'.code, "No newline at $index")
