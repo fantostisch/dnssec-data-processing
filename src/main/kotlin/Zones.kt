@@ -1,6 +1,6 @@
 import java.io.File
 
-fun analyzeZoneFile(
+private fun analyzeZoneFile(
     file: File,
     filterDuplicateSignatures: Boolean
 ): Pair<String, Map<String, Int>> {
