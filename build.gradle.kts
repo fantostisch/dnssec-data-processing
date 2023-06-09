@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.8.21"
     application
+    kotlin("jupyter.api") version "0.11.0-364"
 }
 
 group = "nl.na1"

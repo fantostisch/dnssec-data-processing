@@ -21,92 +21,71 @@ suspend fun analyze(fileLocation: String, includesub: Boolean) {
     var firstTimeStamp = 0u
     var lastTimestamp = 0u
     var validationSuccess = 0
-    var errors = 0
     var allTimes = listOf<UInt>()
     var allPeak = 0.toDouble()
     var previousTime = 0u
     var notInOrder = 0
     val totalLoops = readFileWithProgress(fileLocation) { inputStream, index ->
-        val dataLength = 9
-        val data = inputStream.readNBytes(dataLength)
-        val unixTimeStamp = data.getUIntAt(0)
-        val algo = data.get(5).toUByte()
-        val validated = verificationSucceeded(data.get(6))
-        val sub = data.get(7).toUByte()
-        val length = data.get(8).toUByte()
+        val (readAmount, ud) = readUData(inputStream, index)
+        val domainNameString = ud.domainName.dropLast(1).joinToString(".")
 
-        val domainNameDNS = inputStream.readNBytes(length.toInt())
-        assertOrExit(inputStream.read() == '\n'.code, "No newline at $index")
-
-        val domainName = try {
-            domainNameToString(domainNameDNS)
-        } catch (ex: Exception) {
-            null
-        }
-        if (domainName == null) {
-            errors++
-        } else {
-            val domainNameString = domainName.dropLast(1).joinToString(".")
-
-            if (includesub || sub == 0.toUByte()) {
-                val stat = stats.get(domainNameString)
-                if (stat != null) {
-                    stat.times = updateTimes(stat.times, unixTimeStamp)
-                    val currentPeak =
-                        stat.times.size.toDouble() / windowSeconds.toDouble()
-                    if (currentPeak > stat.peak) {
-                        stat.peak = currentPeak
-                    }
-                    stat.validations++
-                    if (validated) {
-                        stat.successfullValidations++
-                    }
-                } else {
-                    val validatedAmount = if (validated) {
-                        1
-                    } else {
-                        0
-                    }
-                    stats.put(
-                        domainNameString,
-                        Stats(
-                            1,
-                            validatedAmount,
-                            listOf(unixTimeStamp),
-                            1.toDouble() / windowSeconds.toDouble()
-                        )
-                    )
+        if (includesub || !ud.sub) {
+            val stat = stats.get(domainNameString)
+            if (stat != null) {
+                stat.times = updateTimes(stat.times, ud.unixTimeStamp)
+                val currentPeak =
+                    stat.times.size.toDouble() / windowSeconds.toDouble()
+                if (currentPeak > stat.peak) {
+                    stat.peak = currentPeak
                 }
+                stat.validations++
+                if (ud.validated) {
+                    stat.successfullValidations++
+                }
+            } else {
+                val validatedAmount = if (ud.validated) {
+                    1
+                } else {
+                    0
+                }
+                stats.put(
+                    domainNameString,
+                    Stats(
+                        1,
+                        validatedAmount,
+                        listOf(ud.unixTimeStamp),
+                        1.toDouble() / windowSeconds.toDouble()
+                    )
+                )
             }
-
-            if (index == 0) {
-                firstTimeStamp = unixTimeStamp
-            }
-            if (unixTimeStamp > lastTimestamp) {
-                lastTimestamp = unixTimeStamp
-            }
-
-            if (validated) {
-                validationSuccess++
-            }
-            allTimes = updateTimes(allTimes, unixTimeStamp)
-            val currentPeak =
-                allTimes.size.toDouble() / windowSeconds.toDouble()
-            if (currentPeak > allPeak) {
-                allPeak = currentPeak
-            }
-
         }
-        if (unixTimeStamp < previousTime) {
+
+        if (index == 0) {
+            firstTimeStamp = ud.unixTimeStamp
+        }
+        if (ud.unixTimeStamp > lastTimestamp) {
+            lastTimestamp = ud.unixTimeStamp
+        }
+
+        if (ud.validated) {
+            validationSuccess++
+        }
+        allTimes = updateTimes(allTimes, ud.unixTimeStamp)
+        val currentPeak =
+            allTimes.size.toDouble() / windowSeconds.toDouble()
+        if (currentPeak > allPeak) {
+            allPeak = currentPeak
+        }
+
+        if (ud.unixTimeStamp < previousTime) {
             notInOrder++
         } else {
-            previousTime = unixTimeStamp
+            previousTime = ud.unixTimeStamp
         }
-        return@readFileWithProgress dataLength + length.toInt() + 1
+        return@readFileWithProgress readAmount
     }
     val out = File("out.csv")
     out.writeText("")
-    out.appendText("Failed: $errors\n")
     out.appendText("Not in order: $notInOrder\n")
     out.appendText("Total amount of verifications: $totalLoops\n")
     out.appendText("Successfully validated: $validationSuccess\n")
