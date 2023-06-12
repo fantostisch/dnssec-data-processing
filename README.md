@@ -1,6 +1,6 @@
 # DNSSEC Data Processing
 
-## Running 
+## Running
 
 ```bash
 ./gradlew run --args="anonymize /path/to/log"
@@ -14,3 +14,7 @@
 ```bash
 ./gradlew test
 ```
+
+## Plotting
+
+See [plots/README.md](plots/README.md)
