@@ -1,1 +1,5 @@
 # Plotting
+
+```bash
+make
+```
