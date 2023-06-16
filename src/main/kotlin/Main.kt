@@ -32,7 +32,6 @@ suspend fun main(args: Array<String>) {
     }
     val fileLocation = args[1]
     val includeSub = args.getOrNull(2) == "all"
-    val filterDuplicateSignatures = args.getOrNull(2) == "filter"
     when (args[0]) {
         "analyze" -> analyze(fileLocation, includeSub)
         "anonymize" -> anonymize(fileLocation)
@@ -41,7 +40,7 @@ suspend fun main(args: Array<String>) {
             analyze("$fileLocation.$anonSuffix", includeSub)
         }
 
-        "zone" -> analyzeZoneFiles(fileLocation, filterDuplicateSignatures)
+        "zone" -> printZoneFiles(fileLocation)
         else -> printHelp()
     }
     println("Done")
