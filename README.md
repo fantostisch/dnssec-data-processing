@@ -7,6 +7,8 @@
 ./gradlew run --args="analyze /path/to/log.anon"
 # Or anonymize and analzye
 ./gradlew run --args="aa /path/to/log"
+# Analyzing zone files
+./gradlew run --args="zone /path/to/zonefiles"
 ```
 
 ## Testing
