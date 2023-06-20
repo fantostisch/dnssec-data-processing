@@ -8,13 +8,13 @@ private fun analyzeZoneFile(file: File): Pair<String, Map<String, KeyStats>> {
     var previousSignedRecordType: String? = null
     file.forEachLine { l ->
         fun countRecord(): String? {
-            val split = l.split("\t")
+            val split = l.split("\t").filter { s -> s.isNotEmpty() }
             val type = split.getOrNull(3) ?: return null
             if (type.uppercase() != "RRSIG") {
                 return null
             }
             val record = split.getOrNull(4) ?: return null
-            val recordSplit = record.split(" ")
+            val recordSplit = record.split(" ").filter { s -> s.isNotEmpty() }
             val signedRecordType = recordSplit.getOrNull(0) ?: return null
             val keyID = recordSplit.getOrNull(6) ?: return null
             val zoneStats = keys[keyID]
