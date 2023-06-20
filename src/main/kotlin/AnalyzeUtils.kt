@@ -43,7 +43,7 @@ fun readUData(inputStream: InputStream, index: Int): Pair<Int, UData> {
     val unixTimeStamp = data.getUIntAt(0)
     val algo = data[5].toUByte()
     val validated = verificationSucceeded(data.get(6))
-    val sub = data[7] == 0.toByte()
+    val sub = data[7] == 1.toByte()
     val length = data[8].toUByte()
     val domainNameDNS = inputStream.readNBytes(length.toInt())
     assertOrExit(inputStream.read() == '\n'.code, "No newline at $index")
