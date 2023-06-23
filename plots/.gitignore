@@ -1,3 +1,2 @@
-log*.anon
+/data/
 *.html
-zones
