@@ -62,3 +62,17 @@ suspend fun readAllUData(fileLocation: String): List<UData> {
     }
     return uDataList
 }
+
+fun averageLastSeconds(numbers: List<Pair<UInt, Int>>, amountOfSeconds: Int): List<Double> {
+    val result = mutableListOf<Double>()
+    var moving = mutableListOf<Int>()
+    var lastTime = numbers.first().first - 1u
+    numbers.forEach { n ->
+        moving.addAll(generateSequence { 0 }.take(maxOf(amountOfSeconds - 1, n.first.toInt() - lastTime.toInt() - 1)))
+        moving = moving.takeLast(amountOfSeconds - 1).toMutableList()
+        moving.add(n.second)
+        result.add(moving.average())
+        lastTime = n.first
+    }
+    return result
+}
